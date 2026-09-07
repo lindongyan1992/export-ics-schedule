@@ -1,7 +1,7 @@
 {
   "id": "export-ics-schedule",
   "name": "Export ICS Schedule",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "minAppVersion": "1.4.0",
   "description": "Export Markdown tasks to .ics calendar files and open them with the system calendar.",
   "author": "lindongyan",
