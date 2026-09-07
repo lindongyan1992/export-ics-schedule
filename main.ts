@@ -23,6 +23,14 @@ interface Task {
   allDayDate?: string;  // 全天事件（仅日期，YYYYMMDD，直接取原文不做时区换算）
 }
 
+// Obsidian 公开类型里未暴露的原生桥方法（移动端 openWithDefaultApp、桌面端 adapter.open）
+interface AppWithOpenBridge {
+  openWithDefaultApp?: (path: string) => void;
+}
+interface AdapterWithOpenBridge {
+  open?: (path: string) => Promise<void>;
+}
+
 const ICS_FOLDER = '附件/calendar-sync';
 
 // 稳定 UID：基于「笔记路径 + 任务标题」生成，使同一任务重导时 UID 不变，
@@ -184,7 +192,7 @@ export default class ExportIcsSchedulePlugin extends Plugin {
   settings!: Settings;
 
   async onload() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, (await this.loadData()) as Partial<Settings>);
     this.addSettingTab(new ExportIcsScheduleSettingTab(this.app, this));
 
     // 手机端用 openWithDefaultApp 把 .ics 交给系统日历（系统日历）接管导入；
@@ -220,7 +228,7 @@ export default class ExportIcsSchedulePlugin extends Plugin {
     // C. Ribbon 图标：当前文件所有任务
     this.addRibbonIcon('calendar-plus', '本页任务 → ICS日程', () => {
       const f = this.app.workspace.getActiveFile();
-      if (f) this.launchFile(f);
+      if (f) void this.launchFile(f);
       else new Notice('请先打开一个含任务的笔记');
     });
 
@@ -236,7 +244,7 @@ export default class ExportIcsSchedulePlugin extends Plugin {
       name: '当前文件所有任务 → ICS日程',
       callback: () => {
         const f = this.app.workspace.getActiveFile();
-        if (f) this.launchFile(f);
+        if (f) void this.launchFile(f);
         else new Notice('请先打开一个含任务的笔记');
       },
     });
@@ -504,9 +512,9 @@ export default class ExportIcsSchedulePlugin extends Plugin {
     await adapter.write(relPath, ics);
 
     if (Platform.isMobile) {
-      const appAny = this.app as any;
-      if (typeof appAny.openWithDefaultApp === 'function') {
-        appAny.openWithDefaultApp(relPath);
+      const app = this.app as unknown as AppWithOpenBridge;
+      if (app.openWithDefaultApp) {
+        app.openWithDefaultApp(relPath);
         new Notice(
         tasks.length === 1
           ? '📅 已生成日历文件并用系统打开，请在系统日历点"保存"'
@@ -519,14 +527,12 @@ export default class ExportIcsSchedulePlugin extends Plugin {
     }
 
     // 桌面端：写出后用系统默认程序打开 .ics（关联 Outlook 等会直接导入），并提示路径。
-    const full =
-      typeof (adapter as any).getFullPath === 'function'
-        ? (adapter as any).getFullPath(relPath)
-        : relPath;
+    const full = adapter.getFullPath(relPath);
+    const a = adapter as unknown as AdapterWithOpenBridge;
     let opened = false;
     try {
-      if (typeof (adapter as any).open === 'function') {
-        await (adapter as any).open(full);
+      if (a.open) {
+        await a.open(full);
         opened = true;
       }
     } catch {
@@ -555,7 +561,7 @@ export default class ExportIcsSchedulePlugin extends Plugin {
         '全天：(@2026-09-05) 或 📅 2026-09-05'
       );
     }
-    this.writeAndOpenIcs(valid, file);
+    void this.writeAndOpenIcs(valid, file);
   }
 
   /** 批量跳转文件所有任务 */
@@ -575,7 +581,7 @@ export default class ExportIcsSchedulePlugin extends Plugin {
         '全天：(@2026-09-05) 或 📅 2026-09-05'
       );
     }
-    this.writeAndOpenIcs(valid, f);
+    void this.writeAndOpenIcs(valid, f);
   }
 }
 
@@ -590,7 +596,7 @@ class ExportIcsScheduleSettingTab extends PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl('h3', { text: '导出ICS（Export ICS）' });
+    new Setting(containerEl).setName('导出ICS日程（Export ICS Schedule）').setHeading();
     containerEl.createEl('p', {
       text: '打开含任务的笔记，点击功能区的『本页任务 → ICS日程』图标，' +
         '即可把本页所有带时间的 - [ ] 任务生成 .ics 并导入系统日历（命令面板也可搜「ICS日程」）。' +

@@ -4,6 +4,9 @@ node_modules/
 # Obsidian local data
 data.json
 
+# Build output (uploaded to releases, not committed)
+main.js
+
 # Sourcemaps (sourcemaps are inlined, this is a safety net)
 *.map
 
