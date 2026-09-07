@@ -697,7 +697,7 @@ class ExportIcsScheduleSettingTab extends PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    new Setting(containerEl).setName('Settings').setHeading();
+    // No heading: Obsidian already shows the plugin name as the tab title.
     containerEl.createEl('p', {
       text: 'Open a note containing tasks, then click the "Tasks → ICS schedule" ribbon icon. ' +
         'It exports every `- [ ]` task that has a time or a date to a .ics file and opens it with the system calendar. ' +
