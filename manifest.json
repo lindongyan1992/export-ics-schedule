@@ -1,0 +1,9 @@
+{
+  "id": "export-ics-schedule",
+  "name": "导出ICS日程",
+  "version": "0.1.0",
+  "minAppVersion": "1.4.0",
+  "description": "Export Obsidian - [ ] tasks to a .ics calendar file and open it with the system calendar.",
+  "author": "lindongyan",
+  "isDesktopOnly": false
+}

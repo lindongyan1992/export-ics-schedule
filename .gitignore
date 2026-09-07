@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+
+# Obsidian local data
+data.json
+
+# Sourcemaps (sourcemaps are inlined, this is a safety net)
+*.map
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
