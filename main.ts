@@ -588,86 +588,145 @@ export default class ExportIcsSchedulePlugin extends Plugin {
 class ExportIcsScheduleSettingTab extends PluginSettingTab {
   plugin: ExportIcsSchedulePlugin;
 
+  // 24 fixed timezones (UTC-11 ~ UTC+12) with a sample of common cities.
+  // Empty value `''` means "auto" (use the system timezone).
+  // Values are `Etc/GMT±N` (fixed offset, no DST) so Intl handles them everywhere.
+  private static readonly TZ_CITIES: Record<number, string> = {
+    [-11]: 'Pago Pago (American Samoa), Midway',
+    [-10]: 'Honolulu (Hawaii)',
+    [-9]: 'Anchorage (Alaska)',
+    [-8]: 'Los Angeles, Vancouver',
+    [-7]: 'Denver, Phoenix, Edmonton',
+    [-6]: 'Chicago, Mexico City, Guatemala City',
+    [-5]: 'New York, Bogota',
+    [-4]: 'Halifax, La Paz, Manaus',
+    [-3]: 'São Paulo, Buenos Aires, Montevideo',
+    [-2]: 'South Georgia, Fernando de Noronha',
+    [-1]: 'Azores (Portugal), Cape Verde',
+    [0]: 'London, Lisbon, Accra',
+    [1]: 'Paris, Berlin, Rome, Madrid',
+    [2]: 'Cairo, Helsinki, Istanbul',
+    [3]: 'Moscow, Nairobi, Baghdad',
+    [4]: 'Dubai, Baku',
+    [5]: 'Karachi, Islamabad',
+    [6]: 'Dhaka, Astana',
+    [7]: 'Bangkok, Jakarta, Hanoi',
+    [8]: 'Beijing, Shanghai, Hong Kong, Singapore, Perth',
+    [9]: 'Tokyo, Seoul',
+    [10]: 'Sydney, Melbourne',
+    [11]: 'Honiara',
+    [12]: 'Wellington, Suva',
+  };
+  private static readonly TZ_OPTIONS: Record<string, string> = (() => {
+    const opts: Record<string, string> = { '': 'Auto (system timezone)' };
+    for (let off = -11; off <= 12; off++) {
+      const etc = off === 0 ? 'UTC' : `Etc/GMT${off > 0 ? '-' : '+'}${Math.abs(off)}`;
+      const sign = off > 0 ? '+' : off < 0 ? '-' : '';
+      const cities = ExportIcsScheduleSettingTab.TZ_CITIES[off] || '';
+      opts[etc] = `UTC${sign}${Math.abs(off)}: ${cities}`;
+    }
+    return opts;
+  })();
+
   constructor(app: App, plugin: ExportIcsSchedulePlugin) {
     super(app, plugin);
     this.plugin = plugin;
   }
 
+  // Declarative settings API (Obsidian 1.13+). Settings show up in the global
+  // settings search. Persistence (getControlValue / setControlValue / saveData)
+  // is handled by the framework automatically.
+  getSettingDefinitions() {
+    return [
+      {
+        name: 'Timezone',
+        desc: 'Select "Auto" to use the system timezone. For a fixed zone, pick one of 24 fixed zones (UTC-11 to UTC+12).',
+        control: {
+          type: 'dropdown',
+          key: 'timezone',
+          defaultValue: '',
+          options: ExportIcsScheduleSettingTab.TZ_OPTIONS,
+        },
+      },
+      {
+        name: 'Default event duration (minutes)',
+        desc: 'Duration used for timed tasks without an end time. Default: 60.',
+        control: {
+          type: 'number',
+          key: 'defaultDurationMinutes',
+          defaultValue: 60,
+          min: 1,
+          max: 1440,
+        },
+      },
+      {
+        name: 'Reminder lead time (minutes)',
+        desc: '0 = at the start of the event. If your calendar ignores 0, try 5 or 10.',
+        control: {
+          type: 'number',
+          key: 'alarmLeadMinutes',
+          defaultValue: 0,
+          min: 0,
+          max: 1440,
+        },
+      },
+      {
+        name: 'All-day event reminder time (hour)',
+        desc: 'Hour of day to remind for all-day events (0-23). Default: 9.',
+        control: {
+          type: 'number',
+          key: 'allDayReminderHour',
+          defaultValue: 9,
+          min: 0,
+          max: 23,
+        },
+      },
+      {
+        name: 'Defang dates in description',
+        desc: 'Insert zero-width characters into dates in the note name (e.g. diary 2026-09-04) to prevent the calendar\'s "smart schedule" from auto-creating duplicate events. Display unchanged.',
+        control: {
+          type: 'toggle',
+          key: 'defangDates',
+          defaultValue: true,
+        },
+      },
+    ];
+  }
+
+  // Legacy fallback for Obsidian < 1.13.
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    new Setting(containerEl).setName('导出选项').setHeading();
+    new Setting(containerEl).setName('Settings').setHeading();
     containerEl.createEl('p', {
-      text: '打开含任务的笔记，点击功能区的『本页任务 → ICS日程』图标，' +
-        '即可把本页所有带时间的 - [ ] 任务生成 .ics 并导入系统日历（命令面板也可搜「ICS日程」）。' +
-        '写了具体时刻 → 定时日程；只写日期 → 全天日程。两者都会带提醒。',
+      text: 'Open a note containing tasks, then click the "Tasks → ICS schedule" ribbon icon. ' +
+        'It exports every `- [ ]` task that has a time or a date to a .ics file and opens it with the system calendar. ' +
+        'Times become scheduled events; dates only become all-day events. Both include a reminder. ' +
+        'You can also trigger this from the command palette by searching for "ICS schedule".',
     });
     containerEl.createEl('p', {
-      text: '事件去重规则：同一任务的「笔记路径 + 任务标题」都不变，重导时按相同 UID 更新原事件、不再重复；' +
-        '若改了任务标题，或移动/重命名了笔记导致路径变化，都会生成全新 UID，系统日历当作新事件新建一份，旧的（旧标题或旧路径）事件不会自动消失，需在日历里手动删除。',
+      text: 'Deduplication: a task\'s UID is derived from its note path + title. As long as both are unchanged, ' +
+        're-running the export updates the existing event instead of creating a duplicate. ' +
+        'If you rename the task or move/rename the note, a new UID is generated and the system calendar treats it as a new event; ' +
+        'the old event (old title or old path) is NOT removed automatically and must be deleted manually.',
     });
-
-    // 时区：下拉选择 24 个整点时区（UTC-11 ~ UTC+12），值 '' = 自动（手机当前时区）。
-    // 用 Etc/GMT±N 固定偏移名（Intl 支持、无夏令时），覆盖全球 24 个标准时区。
-    // 每个时区附常见国家/地区，方便直观选择。
-    const TZ_CITIES: Record<number, string> = {
-      [-11]: '帕果帕果（美属萨摩亚）、中途岛',
-      [-10]: '檀香山（夏威夷）',
-      [-9]: '安克雷奇（阿拉斯加）',
-      [-8]: '洛杉矶、温哥华',
-      [-7]: '丹佛、菲尼克斯、埃德蒙顿',
-      [-6]: '芝加哥、墨西哥城、危地马拉城',
-      [-5]: '纽约、波哥大',
-      [-4]: '哈利法克斯、拉巴斯、马瑙斯',
-      [-3]: '圣保罗、布宜诺斯艾利斯、蒙特维的亚',
-      [-2]: '南乔治亚、费尔南多·迪诺罗尼亚',
-      [-1]: '亚速尔（葡萄牙）、佛得角',
-      [0]: '伦敦、里斯本、阿克拉',
-      [1]: '巴黎、柏林、罗马、马德里',
-      [2]: '开罗、赫尔辛基、伊斯坦布尔',
-      [3]: '莫斯科、内罗比、巴格达',
-      [4]: '迪拜、巴库',
-      [5]: '卡拉奇、伊斯兰堡',
-      [6]: '达卡、阿斯塔纳',
-      [7]: '曼谷、雅加达、河内',
-      [8]: '北京、上海、香港、新加坡、珀斯',
-      [9]: '东京、首尔',
-      [10]: '悉尼、墨尔本',
-      [11]: '霍尼亚拉',
-      [12]: '惠灵顿、苏瓦',
-    };
-    const TZ_OPTIONS: [string, string][] = [['', '自动（系统当前时区）']];
-    for (let off = -11; off <= 12; off++) {
-      const etc = off === 0 ? 'UTC' : `Etc/GMT${off > 0 ? '-' : '+'}${Math.abs(off)}`;
-      const sign = off > 0 ? '+' : off < 0 ? '-' : '';
-      const cities = TZ_CITIES[off] || '';
-      TZ_OPTIONS.push([etc, `UTC${sign}${Math.abs(off)}：${cities}`]);
-    }
 
     new Setting(containerEl)
-      .setName('时区')
-      .setDesc('选「自动」即用系统当前时区（全以当地时间）。如需固定时区，从 24 个整点时区（UTC-11 ~ UTC+12）中选。')
+      .setName('Timezone')
+      .setDesc('Select "Auto" to use the system timezone. For a fixed zone, pick one of 24 fixed zones (UTC-11 to UTC+12).')
       .addDropdown((dd) => {
-        const cur = this.plugin.settings.timezone || '';
-        for (const [val, label] of TZ_OPTIONS) dd.addOption(val, label);
-        // 已存的值若不在列表里但合法（早期手输的），补一条「自定义」选项
-        if (cur && !TZ_OPTIONS.some(([v]) => v === cur)) {
-          try {
-            new Intl.DateTimeFormat('en-US', { timeZone: cur });
-            dd.addOption(cur, `${cur}（自定义）`);
-          } catch {
-            /* 非法值：不选，回退到自动 */
-          }
+        for (const [val, label] of Object.entries(ExportIcsScheduleSettingTab.TZ_OPTIONS)) {
+          dd.addOption(val, label);
         }
-        dd.setValue(cur).onChange(async (value) => {
+        dd.setValue(this.plugin.settings.timezone || '').onChange(async (value) => {
           this.plugin.settings.timezone = value;
           await this.plugin.saveData(this.plugin.settings);
         });
       });
 
     new Setting(containerEl)
-      .setName('默认事件时长（分钟）')
-      .setDesc('定时任务未指定结束时间时，自动填多少分钟（默认 60）')
+      .setName('Default event duration (minutes)')
+      .setDesc('Duration used for timed tasks without an end time. Default: 60.')
       .addText((text) =>
         text
           .setValue(String(this.plugin.settings.defaultDurationMinutes))
@@ -678,8 +737,8 @@ class ExportIcsScheduleSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName('定时日程提醒提前（分钟）')
-      .setDesc('0 = 准时提醒（事件开始时响）。若日历忽略 0 分钟，可改成 5 或 10')
+      .setName('Reminder lead time (minutes)')
+      .setDesc('0 = at the start of the event. If your calendar ignores 0, try 5 or 10.')
       .addText((text) =>
         text
           .setValue(String(this.plugin.settings.alarmLeadMinutes))
@@ -690,24 +749,22 @@ class ExportIcsScheduleSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName('全天日程提醒时刻（点）')
-      .setDesc('全天事件没有时间点，统一在当天这个时刻提醒（0-23，默认 9 点）')
+      .setName('All-day event reminder time (hour)')
+      .setDesc('Hour of day to remind for all-day events (0-23). Default: 9.')
       .addText((text) =>
         text
           .setValue(String(this.plugin.settings.allDayReminderHour))
           .onChange(async (value) => {
             const h = parseInt(value, 10);
-            this.plugin.settings.allDayReminderHour =
-              Number.isNaN(h) ? 9 : Math.min(23, Math.max(0, h));
+            this.plugin.settings.allDayReminderHour = Number.isNaN(h) ? 9 : Math.min(23, Math.max(0, h));
             await this.plugin.saveData(this.plugin.settings);
           })
       );
 
     new Setting(containerEl)
-      .setName('描述里的日期脱敏')
+      .setName('Defang dates in description')
       .setDesc(
-        '笔记名含日期时（如日记 2026-09-04），插入不可见字符打断日期，' +
-        '避免日历「智能识别日程」据此再建一个重复事件。显示效果不变。'
+        'Insert zero-width characters into dates in the note name (e.g. diary 2026-09-04) to prevent the calendar\'s "smart schedule" from auto-creating duplicate events. Display unchanged.'
       )
       .addToggle((toggle) =>
         toggle
