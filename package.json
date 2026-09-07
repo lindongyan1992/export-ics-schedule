@@ -1,6 +1,6 @@
 {
   "name": "obsidian-export-ics-schedule",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Export Markdown tasks to .ics calendar files and open them with the system calendar",
   "main": "main.js",
   "scripts": {
