@@ -3,7 +3,7 @@
   "name": "Export ICS Schedule",
   "version": "0.1.0",
   "minAppVersion": "1.4.0",
-  "description": "Export Obsidian - [ ] tasks to a .ics calendar file and open it with the system calendar.",
+  "description": "Export Markdown tasks to .ics calendar files and open them with the system calendar.",
   "author": "lindongyan",
   "isDesktopOnly": false
 }
