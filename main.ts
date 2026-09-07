@@ -1,4 +1,4 @@
-import { Plugin, PluginSettingTab, Setting, App, Editor, TFile, Notice, Menu, MenuItem, Platform } from 'obsidian';
+import { Plugin, PluginSettingTab, Setting, App, Editor, TFile, Notice, Menu, MenuItem, Platform, FileSystemAdapter } from 'obsidian';
 
 interface Settings {
   defaultDurationMinutes: number;
@@ -527,12 +527,12 @@ export default class ExportIcsSchedulePlugin extends Plugin {
     }
 
     // 桌面端：写出后用系统默认程序打开 .ics（关联 Outlook 等会直接导入），并提示路径。
-    const full = adapter.getFullPath(relPath);
-    const a = adapter as unknown as AdapterWithOpenBridge;
+    const fs = adapter as FileSystemAdapter & AdapterWithOpenBridge;
+    const full = fs.getFullPath(relPath);
     let opened = false;
     try {
-      if (a.open) {
-        await a.open(full);
+      if (fs.open) {
+        await fs.open(full);
         opened = true;
       }
     } catch {
@@ -596,7 +596,7 @@ class ExportIcsScheduleSettingTab extends PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    new Setting(containerEl).setName('导出ICS日程（Export ICS Schedule）').setHeading();
+    new Setting(containerEl).setName('导出选项').setHeading();
     containerEl.createEl('p', {
       text: '打开含任务的笔记，点击功能区的『本页任务 → ICS日程』图标，' +
         '即可把本页所有带时间的 - [ ] 任务生成 .ics 并导入系统日历（命令面板也可搜「ICS日程」）。' +
