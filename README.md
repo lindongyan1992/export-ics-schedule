@@ -16,23 +16,31 @@ Export Obsidian `- [ ]` tasks to `.ics` calendar files and open them with your s
 
 ## Comparison with similar plugins · 与同类插件的差异
 
-Several plugins already turn Obsidian tasks into calendar files (e.g. **iCal**, **iCal Pro**, **Task Calendar Bridge**), mostly aimed at **whole-vault scanning and subscription/sync** (local file, GitHub Gist, or hosted feed). This plugin takes a lighter, on-demand approach instead:
+This plugin is built for one job: turn **the current note's tasks** into calendar events with a single tap and let the **system calendar app** do the rest. No token, no Gist, no whole-vault scan.
 
-社区里已有几款把 Obsidian 任务转成日历文件的插件（如 **iCal**、**iCal Pro**、**Task Calendar Bridge**），大多面向**全库扫描 + 订阅同步**（本地文件 / GitHub Gist / 托管订阅）。本插件走的是更轻的按需路线：
+本插件只做一件事 —— 把**当前这一页**的任务一键扔进**系统日历**，其余交给日历 App 自己处理：无需 Token、无需 Gist、无需全库扫描。
 
-| | 本插件 This plugin | 典型同类插件 Typical alternatives |
-|---|---|---|
-| 导出粒度 Granularity | 单页 / 单任务，按需 | 全库扫描 + 持续同步 |
-| 移动端 Mobile | ✓ 一键直接拉起系统日历（原生桥） | 导出文件后手动导入 |
-| 时区 Timezone | ✓ 24 个整点时区 + 自动检测 | 多为本地时区 |
-| 夏令时 DST | ✓ 内嵌完整 STANDARD + DAYLIGHT | 多不内嵌时区块 |
-| 去重 Dedup | ✓ 稳定 UID（路径 + 标题哈希） | 视插件而定 |
-| 日期脱敏 Defang | ✓ 防「智能识别」重复建事件 | 无 |
-| 云服务 / 付费 | 无，纯离线、免费 | 部分需 Gist/托管，其一有付费版 |
+Other plugins in this space fall into three rough approaches, each with different trade-offs:
 
-**When to choose which · 怎么选**
-- 只想把**当前这一页**的任务点一下就进系统日历 → 用本插件。
-- 需要**全库持续同步、订阅日历 URL、或跨设备共享** → 可考虑 iCal / iCal Pro / Task Calendar Bridge 等。
+社区同类插件大致走三条路线，各有取舍：
+
+| 维度 Dimension | 本插件 This plugin | 单字段导出版 Single-field exporters | 全库订阅型 Whole-vault sync |
+|---|---|---|---|
+| 触发方式 Trigger | 当前页 / 单任务，按需 | 单条笔记的某个 `frontmatter` 字段 | 全库周期扫描 |
+| 输出形式 Output | **直接拉起系统日历 App** | 写入 vault 子文件夹 `.ics/`（需手动导入） | 上传 GitHub Gist，生成订阅 URL |
+| **移动端 Mobile UX** | ✓ **点一下直接弹出系统日历，事件已预填** | △ 走系统分享面板，需再选一次日历 App | ✕ 需先建 Gist、拷 Token、在日历 App 里手动订阅 URL |
+| 时区 Timezone | ✓ 24 整点时区 + 自动检测 | 仅本地时区 | 仅本地时区 |
+| 夏令时 DST | ✓ 内嵌完整 STANDARD + DAYLIGHT | ✗ | ✗ |
+| 多日期字段 Date fields | `📅` / `⏰` / `(@…)` / `[date::]` / 自定义前缀 | 仅一个固定字段 | `📅` 任务 + Tasks emoji |
+| 提醒 Reminder | ✓ VALARM 可配触发时间 | ✗ | 基础 |
+| 稳定 UID 去重 Dedup | ✓ 路径 + 标题哈希 | △ 视实现而定 | ✗ |
+| 日期脱敏 Defang | ✓ 防「智能识别」重复建事件 | ✗ | ✗ |
+| 云服务 / 付费 Cloud / paid | 无，纯离线、免费 | 无 | GitHub Token（免费），部分有付费托管 |
+
+**怎么选 · When to choose**
+- **移动端随手记几条任务就想立刻进系统日历** → 本插件（一键直达，离线可用）。
+- 笔记里每个事件都有专门的 `deadline` 字段、要批量归档单条 → 单字段导出版。
+- 需要**全库持续同步、用订阅 URL 在多个设备间共享同一份日历** → 全库订阅型。
 
 ## Usage · 用法
 
